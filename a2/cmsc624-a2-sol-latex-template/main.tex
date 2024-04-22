@@ -1,0 +1,235 @@
+\documentclass[11pt]{article}
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[normalem]{ulem}
+
+\setlength{\topmargin}{0in}     % top of paper to head (less one inch)
+\setlength{\headheight}{0in}    % height of the head
+\setlength{\headsep}{0in}       % head to the top of the body
+\setlength{\textheight}{8.75in} % height of the body
+\setlength{\oddsidemargin}{0mm} % left edge of paper to body (less one inch)
+\setlength{\evensidemargin}{0mm} % ditto, even pages
+\setlength{\textwidth}{6.5in}   % width of body
+\setlength{\topskip}{0in}       % top of body to bottom of first line of text
+\setlength{\footskip}{0.50in}   % bottom of text to bottom of foot
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+\newtheorem{lemma}{Lemma}
+\newtheorem{observation}{Observation}
+\newtheorem{definition}{Definition}
+\newtheorem{fact}{Fact}
+\newcommand{\proof}{\vspace*{-1ex} \noindent {\bf Proof: }}
+\newcommand{\proofsketch}{\vspace*{-1ex} \noindent {\bf Proof Sketch: }}
+\newcommand{\qed}{\hfill\rule{2mm}{2mm}}
+\newcommand{\ceiling}[1]{{\left\lceil{#1}\right\rceil}}
+\newcommand{\floor}[1]{{\left\lfloor{#1}\right\rfloor}}
+\newcommand{\paren}[1]{\left({#1}\right)}
+\newcommand{\braces}[1]{\left\{{#1}\right\}}
+\newcommand{\brackets}[1]{\left[{#1}\right]}
+\newcommand{\Prob}{{\rm Prob}}
+\newcommand{\prob}{{\rm Prob}}
+\newcommand{\host}[1]{\tt \small {#1}}
+
+\newcommand{\header}[3]{
+   \pagestyle{plain}
+   \noindent
+   \begin{center}
+   \framebox{
+      \vbox{
+    \hbox to 6.28in { {\bf CMSC 624 Database System Architecture and Implementation 
+\hfill Spring 2024} }
+       \vspace{4mm}
+       \hbox to 6.28in { {\Large \hfill #1 \hfill} }
+       \vspace{4mm}
+    \hbox to 6.28in { {\sl #2 \hfill #3} }
+      }
+   }
+
+   \end{center}
+   \vspace*{4mm}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Per-author comment commands
+% NOTE: To remove them, build with 'make finished' which will generate a new
+% output file with the suffix '-final.pdf'
+
+\ifdefined\isFinalized
+
+\newcommand{\note}[1]{}
+\newcommand{\mnote}[1]{}
+
+\newcommand{\pooja}[1]{}
+\newcommand{\dna}[1]{}
+\newcommand{\answer}[1]{}
+
+\else
+
+\newcommand{\note}[1]{{\color{green}{\it Note: #1}}}
+\newcommand{\mnote}[1]{\marginpar{{\color{red}{\it\ #1 \ \  }}}}
+
+\newcommand{\pooja}[1]{{\color{green}{\it Gang - #1}}}                                                
+\newcommand{\dna}[1]{{\color{purple}{\it DNA - #1}}}
+\newcommand{\answer}[1]{{\color{black}\texttt{{a: - #1}}}}
+
+\fi
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\addtolength{\baselineskip}{-.01\baselineskip}
+
+\header{Programming Assignment 2}{Assigned: February 23}{Due: March 8, 11:59:59 PM}
+
+\newcommand{\spc}{\sqcup}
+\newcommand{\vers}{spring-2024-624}
+
+\section{Description}
+
+In this assignment you will be implementing six concurrency control schemes:
+
+\begin{itemize}
+\item Two versions of locking schemes, both of which implement variations of the standard two-phase locking algorithm we discussed in class.
+\item A version of OCC very similar to the serial-validation version described in the OCC paper you read for class.
+\item A version of OCC somewhat similar to the parallel-validation version described in the OCC paper.
+\item  A version of MVCC timestamp ordering that is a simplified version of the PostgreSQL scheme we studied in class.
+\item A serializable version of the MVCC scheme that is a simplified version of PostgreSQL's SSI scheme.
+\end{itemize}
+
+\section{Requirements}
+
+\begin{enumerate}
+%
+  \item Your code must be submitted as a series of commits that are pushed to
+the origin/master branch of your private Git repository. We consider your latest commit
+prior to the due date/time to represent your submission.
+%
+  \item The directory for your project must be located at the root of your Git repository.
+%
+  \item You are not allowed to work in teams or to copy code from any source.
+  \item You are not allowed to discuss your analysis with anyone else.
+%
+  \item Please submit (\{your\_name\}\_a2\_sol.pdf) to the assignment 2 link on ELMS. You do not need to submit any code, since we can access to your repositories.
+\end{enumerate}
+
+\section{Part 5}
+
+\subsection{Carpe datum (0 points)}
+
+When you finish the coding part of this assignment, we will run your code on our test server, and commit the results back to you.
+
+\subsection{Simulations are doomed to succeed. (4 points)}
+
+Transaction durations are accomplished simply by forcing the thread executing each transaction to run in a busy loop for approximately the amount of time specified. This is supposed to simulate transaction logic --- e.g. the application might run some proprietary customer scoring function to estimate the total value of the customer after reading in the customer record from the database. Please list **at least two weaknesses** of this simulation --- i.e. give two reasons why performance of the different concurrency control schemes you experimented with for this assignment would change relative to each other if we ran actual application code instead of just simulating it with a busy loop.
+
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\subsection{Locking manager (6 points)}
+
+\begin{enumerate}
+\item Is deadlock possible in your locking implementation? Why or why not? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item Most 2PL systems wait until they access data before they request a lock. But this implementation requests all locks before executing any transaction code. What is a performance-related disadvantage of our implementation in this assignment of requesting all locks in advance? What is a client-usability disadvantage of requesting all locks in advance? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+\end{enumerate}
+
+\subsection{OCCam's Razor (6 points)}
+
+The OCC with serial validation is simpler than OCC with parallel validation.   
+
+\begin{enumerate}
+\item How did the two algorithms compare with each other in this simulation? Why do you think that is the case? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item How does this compare to the OCC paper that we read for class? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item What is the biggest reason for the difference between your results and the what you expected after reading the OCC paper? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+\end{enumerate}
+
+If you did not follow the given pseudocode for OCC with parallel validation, give your pseudocode and argue why it is better.
+
+\subsection{OCC vs. Locking B  (7 points)}
+
+If your code is correct, you probably found that relative performance of OCC and Locking B were different from the tradeoffs we discussed in class. In fact, you might be quite surprised by your results. Please describe the two biggest differences between the relative performance of OCC vs. Locking B relative to what we discussed in class, and explain why the theory doesn't match the practice for this codebase for each of these two surprises. 
+
+\subsection{MVCC vs. OCC/Locking (6 points)}
+
+\begin{enumerate}
+\item For the read-write tests, MVCC performs worse than OCC and Locking. Why? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item MVCC even sometimes does worse than serial. Why? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item Yet for the mixed read-only/read-write experiment it performs the best, even though it wasn't the best for either read-only nor read-write. Why? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\end{enumerate}
+
+If you wrote your own version, please explain why it's better than the ones presented here.
+
+
+\subsection{MVCC pseudocode (4 points)}
+
+\begin{enumerate}
+\item Why did our MVCC pseudocode request read locks before each read? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item In particular, what would happen if you didn't acquire these read locks? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item How long do these locks have to be held? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\item How does the MVCC-SSI pseudocode guarantee serializability? \\
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\end{enumerate}
+
+\subsection{Mixed transaction lengths (8 points)}
+
+Take a close look at your high contention read/write results. When transaction lengths are uniform, one of the conccurency control schemes you implemented is best. However, for mixed transaction lengths (the fourth column in the results), you will probably see a different concurrency control scheme as the winner! Please explain why the results changed for mixed transaction lengths.
+
+\answer{your answer here...}
+% your answer
+\vspace{10mm}
+
+\end{document}
+

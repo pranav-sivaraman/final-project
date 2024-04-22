@@ -1,0 +1,7 @@
+build
+.deps
+bin
+obj
+
+.vscode
+.DS_Store
