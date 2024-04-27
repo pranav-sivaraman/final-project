@@ -287,25 +287,22 @@ public:
   AtomicVector() {}
   // Returns the number of elements currently stored in the vector.
   int Size() {
-    mutex_.ReadLock();
+    std::shared_lock lock{mutex_};
     int size = vec_.size();
-    mutex_.Unlock();
     return size;
   }
 
   // Atomically accesses the value associated with the id.
   T &operator[](int id) {
-    mutex_.ReadLock();
+    std::shared_lock lock{mutex_};
     T &value = vec_[id];
-    mutex_.Unlock();
     return value;
   }
 
   // Atomically inserts the value into the vector.
   void Push(const T &value) {
-    mutex_.WriteLock();
+    std::unique_lock lock{mutex_};
     vec_.push_back(value);
-    mutex_.Unlock();
   }
 
   // CMSC 624: TODO(students)
@@ -313,7 +310,7 @@ public:
 
 private:
   std::vector<T> vec_;
-  MutexRW mutex_;
+  std::shared_mutex mutex_;
 };
 
 #endif // _DB_UTILS_ATOMIC_H_
