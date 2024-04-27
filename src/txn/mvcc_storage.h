@@ -47,10 +47,10 @@ private:
   friend class TxnProcessor;
 
   // Storage for MVCC, each key has a linklist of versions
-  unordered_map<Key, deque<Version *> *> mvcc_data_;
+  std::unordered_map<Key, std::deque<Version *> *> mvcc_data_;
 
   // Mutexs for each key
-  unordered_map<Key, Mutex *> mutexs_;
+  std::unordered_map<Key, Mutex *> mutexs_;
 };
 
 #endif // _MVCC_STORAGE_H_

@@ -14,10 +14,6 @@
 #include "utils/mutex.h"
 #include "utils/static_thread_pool.h"
 
-using std::deque;
-using std::map;
-using std::string;
-
 // The TxnProcessor supports five different execution modes, corresponding to
 // the four parts of assignment 2, plus a simple serial (non-concurrent) mode.
 enum CCMode {
@@ -31,7 +27,7 @@ enum CCMode {
 };
 
 // Returns a human-readable string naming of the providing mode.
-string ModeToString(CCMode mode);
+std::string ModeToString(CCMode mode);
 
 class TxnProcessor {
 public:
@@ -126,7 +122,7 @@ private:
   //
   // Does not need to be atomic because RunScheduler is the only thread that
   // will ever access this queue.
-  deque<Txn *> ready_txns_;
+  std::deque<Txn *> ready_txns_;
 
   // Queue of completed (but not yet committed/aborted) transactions.
   AtomicQueue<Txn *> completed_txns_;

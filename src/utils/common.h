@@ -11,8 +11,6 @@
 #include <unistd.h>
 #include <utility>
 
-using std::string;
-
 // debug mode
 #define DEBUG true
 
@@ -61,12 +59,12 @@ static inline double RandomDouble(double max) {
 // Sleep for 'duration' seconds.
 static inline void Sleep(double duration) { usleep(1000000 * duration); }
 // Returns a human-readable string representation of an int.
-static inline string IntToString(int n) {
+static inline std::string IntToString(int n) {
   char s[64];
   snprintf(s, sizeof(s), "%d", n);
-  return string(s);
+  return std::string(s);
 }
 
 // Converts a human-readable numeric string to an int.
-static inline int StringToInt(const string &s) { return atoi(s.c_str()); }
+static inline int StringToInt(const std::string &s) { return atoi(s.c_str()); }
 #endif // _COMMON_H_

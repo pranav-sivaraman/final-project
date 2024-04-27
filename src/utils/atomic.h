@@ -8,10 +8,6 @@
 #include "utils/mutex.h"
 #include <assert.h>
 
-using std::queue;
-using std::set;
-using std::unordered_map;
-
 /// @class AtomicMap<K, V>
 ///
 /// Atomically readable, atomically mutable unordered associative container.
@@ -68,7 +64,7 @@ public:
   }
 
 private:
-  unordered_map<K, V> map_;
+  std::unordered_map<K, V> map_;
   MutexRW mutex_;
 };
 
@@ -118,15 +114,15 @@ public:
   }
 
   // Returns a copy of the underlying set.
-  set<V> GetSet() {
+  std::set<V> GetSet() {
     mutex_.ReadLock();
-    set<V> my_set(set_);
+    std::set<V> my_set(set_);
     mutex_.Unlock();
     return my_set;
   }
 
 private:
-  set<V> set_;
+  std::set<V> set_;
   MutexRW mutex_;
 };
 
@@ -200,7 +196,7 @@ public:
   }
 
 private:
-  queue<T> queue_;
+  std::queue<T> queue_;
   Mutex mutex_;
 };
 
@@ -321,7 +317,7 @@ public:
   // Feel free to add more methods as needed.
 
 private:
-  vector<T> vec_;
+  std::vector<T> vec_;
   MutexRW mutex_;
 };
 

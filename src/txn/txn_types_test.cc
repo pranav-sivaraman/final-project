@@ -54,7 +54,7 @@ TEST(PutMultipleTest) {
   TxnProcessor p(SERIAL);
   Txn *t;
 
-  map<Key, Value> m;
+  std::map<Key, Value> m;
   for (int i = 0; i < 1000; i++)
     m[i] = i * i;
 

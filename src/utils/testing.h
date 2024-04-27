@@ -4,8 +4,6 @@
 #include <iostream>
 #include <stdio.h>
 
-using namespace std; // Don't do this at home, kids.
-
 // Global variable tracking whether current test has failed.
 bool __failed_;
 
@@ -18,14 +16,14 @@ bool __failed_;
     }                                                                          \
   } while (0)
 
-#define LINE cout << "[ " << __FUNCTION__ << " ] "
+#define LINE std::cout << "[ " << __FUNCTION__ << " ] "
 
 #define EXPECT_TRUE(T)                                                         \
   do {                                                                         \
     if (!(T)) {                                                                \
       __failed_ = true;                                                        \
-      cout << "EXPECT_TRUE(" << #T << ") failed at " << __FILE__ << ":"        \
-           << __LINE__ << "\n";                                                \
+      std::cout << "EXPECT_TRUE(" << #T << ") failed at " << __FILE__ << ":"   \
+                << __LINE__ << "\n";                                           \
     }                                                                          \
   } while (0)
 
@@ -33,8 +31,8 @@ bool __failed_;
   do {                                                                         \
     if (T) {                                                                   \
       __failed_ = true;                                                        \
-      cout << "EXPECT_FALSE(" << #T << ") failed at " << __FILE__ << ":"       \
-           << __LINE__ << "\n";                                                \
+      std::cout << "EXPECT_FALSE(" << #T << ") failed at " << __FILE__ << ":"  \
+                << __LINE__ << "\n";                                           \
     }                                                                          \
   } while (0)
 
@@ -42,14 +40,14 @@ bool __failed_;
   do {                                                                         \
     if ((A) != (B)) {                                                          \
       __failed_ = true;                                                        \
-      cout << "EXPECT_EQ(" << #A << ", " << #B                                 \
-           << ") \033[1;31mfailed\033[0m at " << __FILE__ << ":" << __LINE__   \
-           << "\n"                                                             \
-           << "Expected:\n"                                                    \
-           << A << "\n"                                                        \
-           << "Actual:\n"                                                      \
-           << B << "\n"                                                        \
-           << flush;                                                           \
+      std::cout << "EXPECT_EQ(" << #A << ", " << #B                            \
+                << ") \033[1;31mfailed\033[0m at " << __FILE__ << ":"          \
+                << __LINE__ << "\n"                                            \
+                << "Expected:\n"                                               \
+                << A << "\n"                                                   \
+                << "Actual:\n"                                                 \
+                << B << "\n"                                                   \
+                << std::flush;                                                 \
     }                                                                          \
   } while (0)
 
@@ -61,9 +59,9 @@ bool __failed_;
 
 #define END                                                                    \
   if (__failed_) {                                                             \
-    LINE << "\033[1;31mFAIL\033[0m\n" << flush;                                \
+    LINE << "\033[1;31mFAIL\033[0m\n" << std::flush;                           \
   } else {                                                                     \
-    LINE << "\033[1;32mPASS\033[0m\n" << flush;                                \
+    LINE << "\033[1;32mPASS\033[0m\n" << std::flush;                           \
   }                                                                            \
   }                                                                            \
   while (0)                                                                    \

@@ -37,7 +37,8 @@ void Txn::Write(const Key &key, const Value &value) {
 }
 
 void Txn::CheckReadWriteSets() {
-  for (set<Key>::iterator it = writeset_.begin(); it != writeset_.end(); ++it) {
+  for (std::set<Key>::iterator it = writeset_.begin(); it != writeset_.end();
+       ++it) {
     if (readset_.count(*it) > 0) {
       DIE("Overlapping read/write sets\n.");
     }
@@ -45,10 +46,10 @@ void Txn::CheckReadWriteSets() {
 }
 
 void Txn::CopyTxnInternals(Txn *txn) const {
-  txn->readset_ = set<Key>(this->readset_);
-  txn->writeset_ = set<Key>(this->writeset_);
-  txn->reads_ = map<Key, Value>(this->reads_);
-  txn->writes_ = map<Key, Value>(this->writes_);
+  txn->readset_ = std::set<Key>(this->readset_);
+  txn->writeset_ = std::set<Key>(this->writeset_);
+  txn->reads_ = std::map<Key, Value>(this->reads_);
+  txn->writes_ = std::map<Key, Value>(this->writes_);
   txn->status_ = this->status_;
   txn->unique_id_ = this->unique_id_;
   txn->occ_start_idx_ = this->occ_start_idx_;

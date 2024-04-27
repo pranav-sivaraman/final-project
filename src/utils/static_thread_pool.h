@@ -8,13 +8,9 @@
 #include "utils/thread_pool.h"
 #include <queue>
 #include <string>
+#include <unistd.h>
 #include <utility>
 #include <vector>
-
-using std::pair;
-using std::queue;
-using std::string;
-using std::vector;
 
 //
 class StaticThreadPool : public ThreadPool {
@@ -64,18 +60,18 @@ private:
 #endif
 
     for (int i = 0; i < thread_count_; i++) {
-      pthread_create(
-          &threads_[i], &attr, RunThread,
-          reinterpret_cast<void *>(new pair<int, StaticThreadPool *>(i, this)));
+      pthread_create(&threads_[i], &attr, RunThread,
+                     reinterpret_cast<void *>(
+                         new std::pair<int, StaticThreadPool *>(i, this)));
     }
   }
 
   // Function executed by each pthread.
   static void *RunThread(void *arg) {
     int queue_id =
-        reinterpret_cast<pair<int, StaticThreadPool *> *>(arg)->first;
+        reinterpret_cast<std::pair<int, StaticThreadPool *> *>(arg)->first;
     StaticThreadPool *tp =
-        reinterpret_cast<pair<int, StaticThreadPool *> *>(arg)->second;
+        reinterpret_cast<std::pair<int, StaticThreadPool *> *>(arg)->second;
 
     Task task;
     int sleep_duration = 1; // in microseconds
@@ -104,10 +100,10 @@ private:
   }
 
   int thread_count_;
-  vector<pthread_t> threads_;
+  std::vector<pthread_t> threads_;
 
   // Task queues.
-  vector<AtomicQueue<Task>> queues_;
+  std::vector<AtomicQueue<Task>> queues_;
 
   bool stopped_;
 };
@@ -129,11 +125,6 @@ private:
 #include <string>
 #include <utility>
 #include <vector>
-
-using std::pair;
-using std::queue;
-using std::string;
-using std::vector;
 
 //
 class StaticThreadPool : public ThreadPool {
@@ -218,10 +209,10 @@ private:
   }
 
   int thread_count_;
-  vector<pthread_t> threads_;
+  std::vector<pthread_t> threads_;
 
   // Task queues.
-  vector<AtomicQueue<Task *>> queues_;
+  std::vector<AtomicQueue<Task *>> queues_;
 
   bool stopped_;
 };

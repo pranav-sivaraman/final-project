@@ -23,20 +23,20 @@ public:
 // the provided map, commits, else aborts.
 class Expect : public Txn {
 public:
-  Expect(const map<Key, Value> &m) : m_(m) {
-    for (map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it)
+  Expect(const std::map<Key, Value> &m) : m_(m) {
+    for (std::map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it)
       readset_.insert(it->first);
   }
 
   Expect *clone() const { // Virtual constructor (copying)
-    Expect *clone = new Expect(map<Key, Value>(m_));
+    Expect *clone = new Expect(std::map<Key, Value>(m_));
     this->CopyTxnInternals(clone);
     return clone;
   }
 
   virtual void Run() {
     Value result;
-    for (map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it) {
+    for (std::map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it) {
       if (!Read(it->first, &result) || result != it->second) {
         ABORT;
       }
@@ -45,41 +45,42 @@ public:
   }
 
 private:
-  map<Key, Value> m_;
+  std::map<Key, Value> m_;
 };
 
 // Inserts all pairs in the map 'm'.
 class Put : public Txn {
 public:
-  Put(const map<Key, Value> &m) : m_(m) {
-    for (map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it)
+  Put(const std::map<Key, Value> &m) : m_(m) {
+    for (std::map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it)
       writeset_.insert(it->first);
   }
 
   Put *clone() const { // Virtual constructor (copying)
-    Put *clone = new Put(map<Key, Value>(m_));
+    Put *clone = new Put(std::map<Key, Value>(m_));
     this->CopyTxnInternals(clone);
     return clone;
   }
 
   virtual void Run() {
-    for (map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it)
+    for (std::map<Key, Value>::iterator it = m_.begin(); it != m_.end(); ++it)
       Write(it->first, it->second);
     COMMIT;
   }
 
 private:
-  map<Key, Value> m_;
+  std::map<Key, Value> m_;
 };
 
 // Read-modify-write transaction.
 class RMW : public Txn {
 public:
   explicit RMW(double time = 0) : time_(time) {}
-  RMW(const set<Key> &writeset, double time = 0) : time_(time) {
+  RMW(const std::set<Key> &writeset, double time = 0) : time_(time) {
     writeset_ = writeset;
   }
-  RMW(const set<Key> &readset, const set<Key> &writeset, double time = 0)
+  RMW(const std::set<Key> &readset, const std::set<Key> &writeset,
+      double time = 0)
       : time_(time) {
     readset_ = readset;
     writeset_ = writeset;
@@ -119,7 +120,8 @@ public:
   virtual void Run() {
     Value result;
     // Read everything in readset.
-    for (set<Key>::iterator it = readset_.begin(); it != readset_.end(); ++it)
+    for (std::set<Key>::iterator it = readset_.begin(); it != readset_.end();
+         ++it)
       Read(*it, &result);
 
     // Run while loop to simulate the txn logic(duration is time_).
@@ -133,7 +135,7 @@ public:
     }
 
     // Increment length of everything in writeset.
-    for (set<Key>::iterator it = writeset_.begin(); it != writeset_.end();
+    for (std::set<Key>::iterator it = writeset_.begin(); it != writeset_.end();
          ++it) {
       result = 0;
       Read(*it, &result);

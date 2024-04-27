@@ -1,6 +1,6 @@
 #include "lock_manager.h"
 
-LockManagerA::LockManagerA(deque<Txn *> *ready_txns) {
+LockManagerA::LockManagerA(std::deque<Txn *> *ready_txns) {
   ready_txns_ = ready_txns;
 }
 
@@ -22,13 +22,13 @@ void LockManagerA::Release(Txn *txn, const Key &key) {
 }
 
 // NOTE: The owners input vector is NOT assumed to be empty.
-LockMode LockManagerA::Status(const Key &key, vector<Txn *> *owners) {
+LockMode LockManagerA::Status(const Key &key, std::vector<Txn *> *owners) {
   //
   // Implement this method!
   return UNLOCKED;
 }
 
-LockManagerB::LockManagerB(deque<Txn *> *ready_txns) {
+LockManagerB::LockManagerB(std::deque<Txn *> *ready_txns) {
   ready_txns_ = ready_txns;
 }
 
@@ -50,7 +50,7 @@ void LockManagerB::Release(Txn *txn, const Key &key) {
 }
 
 // NOTE: The owners input vector is NOT assumed to be empty.
-LockMode LockManagerB::Status(const Key &key, vector<Txn *> *owners) {
+LockMode LockManagerB::Status(const Key &key, std::vector<Txn *> *owners) {
   //
   // Implement this method!
   return UNLOCKED;
