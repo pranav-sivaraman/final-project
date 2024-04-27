@@ -113,7 +113,7 @@ private:
 
   // Next valid unique_id, and a mutex to guard incoming txn requests.
   int next_unique_id_;
-  Mutex mutex_;
+  std::mutex mutex_;
 
   // Queue of incoming transaction requests.
   AtomicQueue<Txn *> txn_requests_;
