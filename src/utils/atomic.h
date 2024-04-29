@@ -116,34 +116,30 @@ private:
 /// @TODO(alex): This should use lower-contention synchronization.
 template <typename T> class AtomicQueue {
 public:
-  AtomicQueue() {}
+  AtomicQueue() { mutex_ = std::make_unique<std::mutex>(); }
   // Returns the number of elements currently in the queue.
   int Size() {
-    mutex_.Lock();
+    std::unique_lock lock{*mutex_};
     int size = queue_.size();
-    mutex_.Unlock();
     return size;
   }
 
   // Atomically pushes 'item' onto the queue.
   void Push(const T &item) {
-    mutex_.Lock();
+    std::unique_lock lock{*mutex_};
     queue_.push(item);
-    mutex_.Unlock();
   }
 
   // If the queue is non-empty, (atomically) sets '*result' equal to the front
   // element, pops the front element from the queue, and returns true,
   // otherwise returns false.
   bool Pop(T *result) {
-    mutex_.Lock();
+    std::unique_lock lock{*mutex_};
     if (!queue_.empty()) {
       *result = queue_.front();
       queue_.pop();
-      mutex_.Unlock();
       return true;
     } else {
-      mutex_.Unlock();
       return false;
     }
   }
@@ -151,9 +147,9 @@ public:
   // If mutex is immediately acquired, pushes and returns true, else immediately
   // returns false.
   bool PushNonBlocking(const T &item) {
-    if (mutex_.TryLock()) {
+    std::unique_lock lock{*mutex_, std::try_to_lock};
+    if (lock) {
       queue_.push(item);
-      mutex_.Unlock();
       return true;
     } else {
       return false;
@@ -163,16 +159,11 @@ public:
   // If mutex is immediately acquired AND queue is nonempty, pops and returns
   // true, else returns false.
   bool PopNonBlocking(T *result) {
-    if (mutex_.TryLock()) {
-      if (!queue_.empty()) {
-        *result = queue_.front();
-        queue_.pop();
-        mutex_.Unlock();
-        return true;
-      } else {
-        mutex_.Unlock();
-        return false;
-      }
+    std::unique_lock lock{*mutex_, std::try_to_lock};
+    if (lock && !queue_.empty()) {
+      *result = queue_.front();
+      queue_.pop();
+      return true;
     } else {
       return false;
     }
@@ -180,7 +171,7 @@ public:
 
 private:
   std::queue<T> queue_;
-  Mutex mutex_;
+  std::unique_ptr<std::mutex> mutex_;
 };
 
 // An atomically modifiable object. T is required to be a simple numeric type
