@@ -1,7 +1,6 @@
 #ifndef _DB_UTILS_ATOMIC_H_
 #define _DB_UTILS_ATOMIC_H_
 
-#include "utils/mutex.h"
 #include <assert.h>
 #include <queue>
 #include <set>
@@ -174,117 +173,27 @@ private:
   std::unique_ptr<std::mutex> mutex_;
 };
 
-// An atomically modifiable object. T is required to be a simple numeric type
-// or simple struct.
-template <typename T> class Atomic {
-public:
-  Atomic() {}
-  Atomic(T init) : value_(init) {}
-  // Returns the current value.
-  T operator*() { return value_; }
-  // Atomically increments the value.
-  void operator++() {
-    mutex_.Lock();
-    value_++;
-    mutex_.Unlock();
-  }
-
-  // Atomically increments the value by 'x'.
-  void operator+=(T x) {
-    mutex_.Lock();
-    value_ += x;
-    mutex_.Unlock();
-  }
-
-  // Atomically decrements the value.
-  void operator--() {
-    mutex_.Lock();
-    value_--;
-    mutex_.Unlock();
-  }
-
-  // Atomically decrements the value by 'x'.
-  void operator-=(T x) {
-    mutex_.Lock();
-    value_ -= x;
-    mutex_.Unlock();
-  }
-
-  // Atomically multiplies the value by 'x'.
-  void operator*=(T x) {
-    mutex_.Lock();
-    value_ *= x;
-    mutex_.Unlock();
-  }
-
-  // Atomically divides the value by 'x'.
-  void operator/=(T x) {
-    mutex_.Lock();
-    value_ /= x;
-    mutex_.Unlock();
-  }
-
-  // Atomically %'s the value by 'x'.
-  void operator%=(T x) {
-    mutex_.Lock();
-    value_ %= x;
-    mutex_.Unlock();
-  }
-
-  // Atomically assigns the value to equal 'x'.
-  void operator=(T x) {
-    mutex_.Lock();
-    value_ = x;
-    mutex_.Unlock();
-  }
-
-  // Checks if the value is equal to 'old_value'. If so, atomically sets the
-  // value to 'new_value' and returns true, otherwise sets '*old_value' equal
-  // to the value at the time of the comparison and returns false.
-  //
-  // TODO(alex): Use C++ <atomic> library to improve performance?
-  bool CAS(T *old_value, T new_value) {
-    mutex_.Lock();
-    if (value_ == *old_value) {
-      value_ = new_value;
-      mutex_.Unlock();
-      return true;
-    } else {
-      *old_value = value_;
-      mutex_.Unlock();
-      return false;
-    }
-  }
-
-private:
-  T value_;
-  Mutex mutex_;
-};
-
 template <typename T> class AtomicVector {
 public:
   AtomicVector() {}
   // Returns the number of elements currently stored in the vector.
   int Size() {
-    mutex_.ReadLock();
+    std::shared_lock lock{mutex_};
     int size = vec_.size();
-    mutex_.Unlock();
     return size;
   }
 
   // Atomically accesses the value associated with the id.
   T &operator[](int id) {
-    mutex_.ReadLock();
+    std::shared_lock lock{mutex_};
     T &value = vec_[id];
-    mutex_.Unlock();
     return value;
   }
 
   // Atomically inserts the value into the vector.
   void Push(const T &value) {
-    mutex_.WriteLock();
+    std::unique_lock lock{mutex_};
     vec_.push_back(value);
-    mutex_.Unlock();
   }
 
   // CMSC 624: TODO(students)
@@ -292,7 +201,7 @@ public:
 
 private:
   std::vector<T> vec_;
-  MutexRW mutex_;
+  std::shared_mutex mutex_;
 };
 
 #endif // _DB_UTILS_ATOMIC_H_
