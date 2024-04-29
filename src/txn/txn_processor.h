@@ -11,7 +11,6 @@
 #include "txn.h"
 #include "utils/atomic.h"
 #include "utils/common.h"
-#include "utils/mutex.h"
 #include "utils/static_thread_pool.h"
 
 // The TxnProcessor supports five different execution modes, corresponding to
@@ -113,7 +112,7 @@ private:
 
   // Next valid unique_id, and a mutex to guard incoming txn requests.
   int next_unique_id_;
-  Mutex mutex_;
+  std::mutex mutex_;
 
   // Queue of incoming transaction requests.
   AtomicQueue<Txn *> txn_requests_;
@@ -140,7 +139,7 @@ private:
   AtomicSet<Txn *> active_set_;
 
   // Used it for critical section in parallel occ.
-  Mutex active_set_mutex_;
+  std::mutex active_set_mutex_;
 
   // Lock Manager used for LOCKING concurrency implementations.
   LockManager *lm_;

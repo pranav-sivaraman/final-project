@@ -2,6 +2,8 @@
 #define _MVCC_STORAGE_H_
 
 #include "storage.h"
+#include <deque>
+#include <unordered_map>
 
 // MVCC 'version' structure
 struct Version {
@@ -50,7 +52,7 @@ private:
   std::unordered_map<Key, std::deque<Version *> *> mvcc_data_;
 
   // Mutexs for each key
-  std::unordered_map<Key, Mutex *> mutexs_;
+  std::unordered_map<Key, std::mutex *> mutexs_;
 };
 
 #endif // _MVCC_STORAGE_H_

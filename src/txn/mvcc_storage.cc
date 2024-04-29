@@ -4,7 +4,7 @@
 void MVCCStorage::InitStorage() {
   for (int i = 0; i < 1000000; i++) {
     Write(i, 0, 0);
-    Mutex *key_mutex = new Mutex();
+    std::mutex *key_mutex = new std::mutex;
     mutexs_[i] = key_mutex;
   }
 }
@@ -26,10 +26,10 @@ MVCCStorage::~MVCCStorage() {
 
 // Lock the key to protect its version_list. Remember to lock the key when you
 // read/update the version_list
-void MVCCStorage::Lock(Key key) { mutexs_[key]->Lock(); }
+void MVCCStorage::Lock(Key key) { mutexs_[key]->lock(); }
 
 // Unlock the key.
-void MVCCStorage::Unlock(Key key) { mutexs_[key]->Unlock(); }
+void MVCCStorage::Unlock(Key key) { mutexs_[key]->unlock(); }
 
 // MVCC Read
 bool MVCCStorage::Read(Key key, Value *result, int txn_unique_id) {
