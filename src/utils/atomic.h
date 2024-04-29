@@ -70,52 +70,43 @@ public:
   AtomicSet() {}
   // Returns the number of key-value pairs currently stored in the map.
   int Size() {
-    mutex_.ReadLock();
-    int size = set_.size();
-    mutex_.Unlock();
-    return size;
+    std::shared_lock lock{mutex_};
+    return set_.size();
   }
 
   // Returns true if the set contains V value.
   bool Contains(const V &value) {
-    mutex_.ReadLock();
-    int count = set_.count(value);
-    mutex_.Unlock();
-    return count > 0;
+    std::shared_lock lock{mutex_};
+    return set_.contains(value);
   }
 
   // Atomically inserts the value into the set.
   void Insert(const V &value) {
-    mutex_.WriteLock();
+    std::unique_lock lock{mutex_};
     set_.insert(value);
-    mutex_.Unlock();
   }
 
   // Atomically erases the object value from the set.
   void Erase(const V &value) {
-    mutex_.WriteLock();
+    std::unique_lock lock{mutex_};
     set_.erase(value);
-    mutex_.Unlock();
   }
 
   V GetFirst() {
-    mutex_.WriteLock();
+    std::unique_lock lock{mutex_};
     V first = *(set_.begin());
-    mutex_.Unlock();
     return first;
   }
 
   // Returns a copy of the underlying set.
   std::set<V> GetSet() {
-    mutex_.ReadLock();
-    std::set<V> my_set(set_);
-    mutex_.Unlock();
-    return my_set;
+    std::shared_lock lock{mutex_};
+    return {set_};
   }
 
 private:
   std::set<V> set_;
-  MutexRW mutex_;
+  std::shared_mutex mutex_;
 };
 
 /// @class AtomicQueue<T>
