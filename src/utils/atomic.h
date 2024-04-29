@@ -1,12 +1,12 @@
 #ifndef _DB_UTILS_ATOMIC_H_
 #define _DB_UTILS_ATOMIC_H_
 
-#include <queue>
-#include <set>
-#include <unordered_map>
-
 #include "utils/mutex.h"
 #include <assert.h>
+#include <queue>
+#include <set>
+#include <shared_mutex>
+#include <unordered_map>
 
 /// @class AtomicMap<K, V>
 ///
@@ -18,30 +18,24 @@ public:
   AtomicMap() {}
   // Returns the number of key-value pairs currently stored in the map.
   int Size() {
-    mutex_.ReadLock();
-    int size = map_.size();
-    mutex_.Unlock();
-    return size;
+    std::shared_lock lock{mutex_};
+    return map_.size();
   }
 
   // Returns true if the map contains a pair with key equal to 'key'.
   bool Contains(const K &key) {
-    mutex_.ReadLock();
-    int count = map_.count(key);
-    mutex_.Unlock();
-    return count > 0;
+    std::shared_lock lock{mutex_};
+    return map_.contains(key);
   }
 
   // If the map contains a pair with key 'key', sets '*value' equal to the
   // associated value and returns true, else returns false.
   bool Lookup(const K &key, V *value) {
-    mutex_.ReadLock();
-    if (map_.count(key) != 0) {
+    std::shared_lock lock{mutex_};
+    if (map_.contains(key)) {
       *value = map_[key];
-      mutex_.Unlock();
       return true;
     } else {
-      mutex_.Unlock();
       return false;
     }
   }
@@ -49,23 +43,21 @@ public:
   // Atomically inserts the pair (key, value) into the map (clobbering any
   // previous pair with key equal to 'key'.
   void Insert(const K &key, const V &value) {
-    mutex_.WriteLock();
+    std::unique_lock lock{mutex_};
     map_[key] = value;
-    mutex_.Unlock();
   }
 
   // Synonym for 'Insert(key, value)'.
   void Set(const K &key, const V &value) { Insert(key, value); }
   // Atomically erases any pair with key 'key' from the map.
   void Erase(const K &key) {
-    mutex_.WriteLock();
+    std::unique_lock lock{mutex_};
     map_.erase(key);
-    mutex_.Unlock();
   }
 
 private:
   std::unordered_map<K, V> map_;
-  MutexRW mutex_;
+  std::shared_mutex mutex_;
 };
 
 /// @class AtomicSet<K>
