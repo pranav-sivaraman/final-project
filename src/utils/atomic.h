@@ -42,7 +42,7 @@ public:
   // Atomically inserts the pair (key, value) into the map (clobbering any
   // previous pair with key equal to 'key'.
   void Insert(const K &key, const V &value) {
-    std::unique_lock lock{mutex_};
+    std::scoped_lock lock{mutex_};
     map_[key] = value;
   }
 
@@ -50,7 +50,7 @@ public:
   void Set(const K &key, const V &value) { Insert(key, value); }
   // Atomically erases any pair with key 'key' from the map.
   void Erase(const K &key) {
-    std::unique_lock lock{mutex_};
+    std::scoped_lock lock{mutex_};
     map_.erase(key);
   }
 
@@ -81,18 +81,18 @@ public:
 
   // Atomically inserts the value into the set.
   void Insert(const V &value) {
-    std::unique_lock lock{mutex_};
+    std::scoped_lock lock{mutex_};
     set_.insert(value);
   }
 
   // Atomically erases the object value from the set.
   void Erase(const V &value) {
-    std::unique_lock lock{mutex_};
+    std::scoped_lock lock{mutex_};
     set_.erase(value);
   }
 
   V GetFirst() {
-    std::unique_lock lock{mutex_};
+    std::scoped_lock lock{mutex_};
     V first = *(set_.begin());
     return first;
   }
@@ -118,14 +118,14 @@ public:
   AtomicQueue() { mutex_ = std::make_unique<std::mutex>(); }
   // Returns the number of elements currently in the queue.
   int Size() {
-    std::unique_lock lock{*mutex_};
+    std::scoped_lock lock{*mutex_};
     int size = queue_.size();
     return size;
   }
 
   // Atomically pushes 'item' onto the queue.
   void Push(const T &item) {
-    std::unique_lock lock{*mutex_};
+    std::scoped_lock lock{*mutex_};
     queue_.push(item);
   }
 
@@ -133,7 +133,7 @@ public:
   // element, pops the front element from the queue, and returns true,
   // otherwise returns false.
   bool Pop(T *result) {
-    std::unique_lock lock{*mutex_};
+    std::scoped_lock lock{*mutex_};
     if (!queue_.empty()) {
       *result = queue_.front();
       queue_.pop();
@@ -192,7 +192,7 @@ public:
 
   // Atomically inserts the value into the vector.
   void Push(const T &value) {
-    std::unique_lock lock{mutex_};
+    std::scoped_lock lock{mutex_};
     vec_.push_back(value);
   }
 
