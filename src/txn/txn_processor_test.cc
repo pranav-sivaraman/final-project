@@ -1,9 +1,50 @@
-#include "txn_processor.h"
-
+#include <fstream>
+#include <memory>
 #include <vector>
 
+#include <perfetto.h>
+
+#include "trace_categories.h"
 #include "txn/txn_types.h"
-#include "utils/testing.h"
+#include "txn_processor.h"
+
+void initialize_perfetto() {
+  perfetto::TracingInitArgs args;
+  args.backends |= perfetto::kInProcessBackend;
+  perfetto::Tracing::Initialize(args);
+  perfetto::TrackEvent::Register();
+}
+
+std::unique_ptr<perfetto::TracingSession> start_tracing() {
+  perfetto::TraceConfig cfg;
+  cfg.add_buffers()->set_size_kb(1024);
+  auto *ds_cfg = cfg.add_data_sources()->mutable_config();
+  ds_cfg->set_name("track_event");
+
+  auto tracing_session = perfetto::Tracing::NewTrace();
+  tracing_session->Setup(cfg);
+  tracing_session->StartBlocking();
+  return tracing_session;
+}
+
+void stop_tracing(std::unique_ptr<perfetto::TracingSession> tracing_session) {
+  // Make sure the last event is closed for this example.
+  perfetto::TrackEvent::Flush();
+
+  // Stop tracing and read the trace data.
+  tracing_session->StopBlocking();
+  std::vector<char> trace_data(tracing_session->ReadTraceBlocking());
+
+  // Write the result into a file.
+  // Note: To save memory with longer traces, you can tell Perfetto to write
+  // directly into a file by passing a file descriptor into Setup() above.
+  std::ofstream output;
+  output.open("db.pftrace", std::ios::out | std::ios::binary);
+  output.write(&trace_data[0], std::streamsize(trace_data.size()));
+  output.close();
+  PERFETTO_LOG("Trace written in example.pftrace file. To read this trace in "
+               "text form, run `./tools/traceconv text example.pftrace`");
+}
 
 // Returns a human-readable string naming of the providing mode.
 std::string ModeToString(CCMode mode) {
@@ -134,8 +175,9 @@ void Benchmark(const std::vector<LoadGen *> &lg) {
   std::deque<Txn *> doneTxns;
 
   // For each MODE...
-  for (CCMode mode = SERIAL; mode <= MVCC;
+  for (CCMode mode = SERIAL; mode <= LOCKING;
        mode = static_cast<CCMode>(mode + 1)) {
+    TRACE_EVENT("rendering", "Benchmark", "CCMode", ModeToString(mode));
     // Print out mode name.
     std::cout << ModeToString(mode) << std::flush;
 
@@ -193,6 +235,14 @@ void Benchmark(const std::vector<LoadGen *> &lg) {
 }
 
 int main(int argc, char **argv) {
+  initialize_perfetto();
+  auto tracing_session = start_tracing();
+
+  perfetto::ProcessTrack process_track = perfetto::ProcessTrack::Current();
+  perfetto::protos::gen::TrackDescriptor desc = process_track.Serialize();
+  desc.mutable_process()->set_process_name("Txn Processor Test");
+  perfetto::TrackEvent::SetTrackDescriptor(process_track, desc);
+
   std::cout
       << "\t\t----------------------------------------------------------------"
          "---"
@@ -210,6 +260,8 @@ int main(int argc, char **argv) {
 
   std::vector<LoadGen *> lg;
 
+  TRACE_EVENT_BEGIN("rendering", "Low contention Read only (5 records)");
+
   std::cout << "\t\t            Low contention Read only (5 records)"
             << std::endl;
   std::cout
@@ -224,9 +276,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "Low contention Read only (30 records)");
 
   std::cout << "\t\t            Low contention Read only (30 records)"
             << std::endl;
@@ -242,9 +298,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "High contention Read only (5 records)");
 
   std::cout << "\t\t            High contention Read only (5 records)"
             << std::endl;
@@ -260,9 +320,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "High contention Read only (30 records)");
 
   std::cout << "\t\t            High contention Read only (30 records)"
             << std::endl;
@@ -278,9 +342,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "Low contention Read only (5 records)");
 
   std::cout << "\t\t            Low contention read-write (5 records)"
             << std::endl;
@@ -296,9 +364,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "Low contention read-write (10 records)");
 
   std::cout << "\t\t            Low contention read-write (10 records)"
             << std::endl;
@@ -314,9 +386,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "High contention read-write (5 records)");
 
   std::cout << "\t\t            High contention read-write (5 records)"
             << std::endl;
@@ -332,9 +408,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "High contention read-write (10 records)");
 
   std::cout << "\t\t            High contention read-write (10 records)"
             << std::endl;
@@ -350,9 +430,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  TRACE_EVENT_BEGIN("rendering", "High contention mixed read only/read-write");
 
   // 80% of transactions are READ only transactions and run for the full
   // transaction duration. The rest are very fast (< 0.1ms), high-contention
@@ -371,7 +455,13 @@ int main(int argc, char **argv) {
   Benchmark(lg);
   std::cout << std::endl;
 
+  TRACE_EVENT_END("rendering");
+
   for (uint32 i = 0; i < lg.size(); i++)
     delete lg[i];
   lg.clear();
+
+  stop_tracing(std::move(tracing_session));
+
+  return 0;
 }

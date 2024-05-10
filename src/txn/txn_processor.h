@@ -16,13 +16,13 @@
 // The TxnProcessor supports five different execution modes, corresponding to
 // the four parts of assignment 2, plus a simple serial (non-concurrent) mode.
 enum CCMode {
-  SERIAL = 0,                 // Serial transaction execution (no concurrency)
-  LOCKING_EXCLUSIVE_ONLY = 1, // Part 1A
-  LOCKING = 2,                // Part 1B
-  OCC = 3,                    // Part 2
-  P_OCC = 4,                  // Part 3
-  MVCC = 5,                   // Part 4
-  MVCC_SSI = 6,               // Part 5
+  SERIAL = 0,             // Serial transaction execution (no concurrency)
+  LOCKING,                // Part 1B
+  LOCKING_EXCLUSIVE_ONLY, // Part 1A
+  OCC,                    // Part 2
+  P_OCC,                  // Part 3
+  MVCC,                   // Part 4
+  MVCC_SSI,               // Part 5
 };
 
 // Returns a human-readable string naming of the providing mode.

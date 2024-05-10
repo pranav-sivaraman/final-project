@@ -1,9 +1,12 @@
-#include "txn_processor.h"
 #include <set>
 #include <stdio.h>
 #include <unordered_set>
 
+#include <perfetto.h>
+
 #include "lock_manager.h"
+#include "trace_categories.h"
+#include "txn_processor.h"
 
 // Thread & queue counts for StaticThreadPool initialization.
 #define THREAD_COUNT 8
@@ -105,6 +108,7 @@ void TxnProcessor::RunScheduler() {
 }
 
 void TxnProcessor::RunSerialScheduler() {
+  TRACE_EVENT("rendering", "RunSerialScheduler");
   Txn *txn;
   while (!stopped_) {
     // Get next txn request.
@@ -131,10 +135,12 @@ void TxnProcessor::RunSerialScheduler() {
 }
 
 void TxnProcessor::RunLockingScheduler() {
+  TRACE_EVENT("rendering", "RunLockingScheduler", "Mode", mode_);
   Txn *txn;
   while (!stopped_) {
     // Start processing the next incoming transaction request.
     if (txn_requests_.Pop(&txn)) {
+      TRACE_EVENT("rendering", "ProcessIncomingTxn");
       bool blocked = false;
       // Request read locks.
       for (std::set<Key>::iterator it = txn->readset_.begin();
@@ -161,6 +167,7 @@ void TxnProcessor::RunLockingScheduler() {
 
     // Process and commit all transactions that have finished running.
     while (completed_txns_.Pop(&txn)) {
+      TRACE_EVENT("rendering", "ProcessCompletedTxns");
       // Commit/abort txn according to program logic's commit/abort decision.
       if (txn->Status() == COMPLETED_C) {
         ApplyWrites(txn);
@@ -191,6 +198,7 @@ void TxnProcessor::RunLockingScheduler() {
     // Start executing all transactions that have newly acquired all their
     // locks.
     while (ready_txns_.size()) {
+      TRACE_EVENT("rendering", "AssignReadyTxns");
       // Get next ready txn from the queue.
       txn = ready_txns_.front();
       ready_txns_.pop_front();
@@ -202,6 +210,7 @@ void TxnProcessor::RunLockingScheduler() {
 }
 
 void TxnProcessor::ExecuteTxn(Txn *txn) {
+  TRACE_EVENT("rendering", "ExecuteTxn");
   // Get the current commited transaction index for the further validation.
   txn->occ_start_idx_ = committed_txns_.Size();
 
@@ -231,6 +240,7 @@ void TxnProcessor::ExecuteTxn(Txn *txn) {
 }
 
 void TxnProcessor::ApplyWrites(Txn *txn) {
+  TRACE_EVENT("rendering", "ApplyWrites");
   // Write buffered writes out to storage.
   for (std::map<Key, Value>::iterator it = txn->writes_.begin();
        it != txn->writes_.end(); ++it) {
