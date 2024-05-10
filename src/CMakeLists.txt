@@ -5,6 +5,7 @@ add_library(txn STATIC
     txn/txn.cc
     txn/txn_processor.cc
     txn/lock_manager.cc
+    txn/trace_categories.cc
 )
 target_link_libraries(txn PUBLIC Threads::Threads)
 
