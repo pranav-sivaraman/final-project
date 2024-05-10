@@ -1,8 +1,8 @@
 #ifndef _TXN_PROCESSOR_H_
 #define _TXN_PROCESSOR_H_
 
+#include <atomic>
 #include <deque>
-#include <map>
 #include <string>
 
 #include "lock_manager.h"
@@ -111,7 +111,7 @@ private:
   Storage *storage_;
 
   // Next valid unique_id, and a mutex to guard incoming txn requests.
-  int next_unique_id_;
+  std::atomic<int> next_unique_id_;
   std::mutex mutex_;
 
   // Queue of incoming transaction requests.

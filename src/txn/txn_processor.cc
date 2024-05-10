@@ -69,9 +69,7 @@ TxnProcessor::~TxnProcessor() {
 void TxnProcessor::NewTxnRequest(Txn *txn) {
   // Atomically assign the txn a new number and add it to the incoming txn
   // requests queue.
-  std::unique_lock lock{mutex_};
-  txn->unique_id_ = next_unique_id_;
-  next_unique_id_++;
+  txn->unique_id_ = next_unique_id_++;
   txn_requests_.Push(txn);
 }
 

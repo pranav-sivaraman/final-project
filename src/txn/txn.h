@@ -3,7 +3,6 @@
 
 #include <map>
 #include <set>
-#include <vector>
 
 #include "utils/common.h"
 
