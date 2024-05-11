@@ -23,7 +23,7 @@ public:
     }
   }
   ~StaticThreadPool() {
-    stopped_.store(true, std::memory_order_relaxed);
+    stopped_ = true;
     for (int i = 0; i < thread_count_; i++) {
       threads_[i].join();
     }

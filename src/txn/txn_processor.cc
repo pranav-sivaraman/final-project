@@ -31,7 +31,7 @@ TxnProcessor::TxnProcessor(CCMode mode)
 TxnProcessor::~TxnProcessor() {
   // Wait for the scheduler thread to join back before destroying the object and
   // its thread pool.
-  stopped_.store(true, std::memory_order_relaxed);
+  stopped_ = true;
   scheduler_thread_.join();
 
   if (mode_ == LOCKING_EXCLUSIVE_ONLY || mode_ == LOCKING)
@@ -43,7 +43,7 @@ TxnProcessor::~TxnProcessor() {
 void TxnProcessor::NewTxnRequest(Txn *txn) {
   // Atomically assign the txn a new number and add it to the incoming txn
   // requests queue.
-  txn->unique_id_ = next_unique_id_.fetch_add(1, std::memory_order_relaxed);
+  txn->unique_id_ = next_unique_id_++;
   txn_requests_.Push(txn);
 }
 
@@ -99,8 +99,8 @@ void TxnProcessor::ExecuteTxnCalvin(Txn *txn) {
   std::shared_lock lock{adj_list_mutex};
   auto neighbors = adj_list[txn];
   for (const auto &neighbor : neighbors) {
-    int local = indegrees[neighbor].fetch_sub(1, std::memory_order_acq_rel);
-    if (local == 1) {
+    int local = --indegrees[neighbor];
+    if (local == 0) {
       tp_.AddTask([this, neighbor]() { this->ExecuteTxnCalvin(neighbor); });
     }
   }
@@ -158,7 +158,7 @@ void TxnProcessor::RunCalvinScheduler() {
       if (local_indegree == 0) {
         tp_.AddTask([this, txn]() { this->ExecuteTxnCalvin(txn); });
       } else {
-        indegrees[txn].store(local_indegree, std::memory_order_relaxed);
+        indegrees[txn] = local_indegree;
       }
     }
   }
