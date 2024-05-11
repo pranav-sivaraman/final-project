@@ -10,6 +10,10 @@ set(DB_BINARY_DIR   ${CMAKE_CURRENT_BINARY_DIR})
 find_package(Threads REQUIRED)
 find_package(fmt REQUIRED)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 include_directories(perfetto/sdk)
 add_library(perfetto STATIC perfetto/sdk/perfetto.cc)
 
