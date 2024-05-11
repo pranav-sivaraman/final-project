@@ -26,39 +26,15 @@ TxnProcessor::TxnProcessor(CCMode mode)
   }
 
   storage_->InitStorage();
-
-  // Start 'RunScheduler()' running.
-
-  pthread_attr_t attr;
-  pthread_attr_init(&attr);
-
-#if !defined(_MSC_VER) && !defined(__APPLE__)
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  for (int i = 0; i < 7; i++) {
-    CPU_SET(i, &cpuset);
-  }
-  pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
-#endif
-
-  pthread_t scheduler_;
-  pthread_create(&scheduler_, &attr, StartScheduler,
-                 reinterpret_cast<void *>(this));
-
   stopped_ = false;
-  scheduler_thread_ = scheduler_;
-}
-
-void *TxnProcessor::StartScheduler(void *arg) {
-  reinterpret_cast<TxnProcessor *>(arg)->RunScheduler();
-  return NULL;
+  scheduler_thread_ = std::thread{&TxnProcessor::RunScheduler, this};
 }
 
 TxnProcessor::~TxnProcessor() {
   // Wait for the scheduler thread to join back before destroying the object and
   // its thread pool.
   stopped_ = true;
-  pthread_join(scheduler_thread_, NULL);
+  scheduler_thread_.join();
 
   if (mode_ == LOCKING_EXCLUSIVE_ONLY || mode_ == LOCKING)
     delete lm_;
