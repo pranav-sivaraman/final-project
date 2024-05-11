@@ -156,7 +156,7 @@ private:
   LockManager *lm_;
 
   // Used for stopping the continuous loop that runs in the scheduler thread
-  bool stopped_;
+  std::atomic<bool> stopped_;
 
   // Gives us access to the scheduler thread so that we can wait for it to join
   // later.

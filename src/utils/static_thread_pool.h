@@ -1,6 +1,7 @@
 #ifndef _DB_UTILS_STATIC_THREAD_POOL_H_
 #define _DB_UTILS_STATIC_THREAD_POOL_H_
 
+#include <atomic>
 #include <thread>
 #include <unistd.h>
 #include <utility>
@@ -22,7 +23,7 @@ public:
     }
   }
   ~StaticThreadPool() {
-    stopped_ = true;
+    stopped_.store(true, std::memory_order_relaxed);
     for (int i = 0; i < thread_count_; i++) {
       threads_[i].join();
     }
@@ -79,7 +80,7 @@ private:
   // Task queues.
   std::vector<AtomicQueue<Task>> queues_;
 
-  bool stopped_;
+  std::atomic<bool> stopped_;
 };
 
 #endif // _DB_UTILS_STATIC_THREAD_POOL_H_

@@ -31,7 +31,7 @@ TxnProcessor::TxnProcessor(CCMode mode)
 TxnProcessor::~TxnProcessor() {
   // Wait for the scheduler thread to join back before destroying the object and
   // its thread pool.
-  stopped_ = true;
+  stopped_.store(true, std::memory_order_relaxed);
   scheduler_thread_.join();
 
   if (mode_ == LOCKING_EXCLUSIVE_ONLY || mode_ == LOCKING)
