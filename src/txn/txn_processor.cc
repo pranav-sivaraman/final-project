@@ -1,11 +1,9 @@
+#include <atomic>
 #include <set>
 #include <stdio.h>
 #include <unordered_set>
 
-#include <perfetto.h>
-
 #include "lock_manager.h"
-#include "trace_categories.h"
 #include "txn_processor.h"
 
 // Thread & queue counts for StaticThreadPool initialization.
@@ -45,7 +43,7 @@ TxnProcessor::~TxnProcessor() {
 void TxnProcessor::NewTxnRequest(Txn *txn) {
   // Atomically assign the txn a new number and add it to the incoming txn
   // requests queue.
-  txn->unique_id_ = next_unique_id_++;
+  txn->unique_id_ = next_unique_id_.fetch_add(1, std::memory_order_relaxed);
   txn_requests_.Push(txn);
 }
 
@@ -78,11 +76,95 @@ void TxnProcessor::RunScheduler() {
     break;
   case MVCC:
     RunMVCCScheduler();
+    break;
+  case CALVIN:
+    RunCalvinScheduler();
+  }
+}
+
+void TxnProcessor::ExecuteTxnCalvin(Txn *txn) {
+  ExecuteTxn(txn);
+
+  if (txn->Status() == COMPLETED_C) {
+    ApplyWrites(txn);
+    committed_txns_.Push(txn);
+    txn->status_ = COMMITTED;
+  } else if (txn->Status() == COMPLETED_A) {
+    txn->status_ = ABORTED;
+  } else {
+    // Invalid TxnStatus!
+    DIE("Completed Txn has invalid TxnStatus: " << txn->Status());
+  }
+
+  std::shared_lock lock{adj_list_mutex};
+  auto neighbors = adj_list[txn];
+  for (const auto &neighbor : neighbors) {
+    int local = indegrees[neighbor].fetch_sub(1, std::memory_order_acq_rel);
+    if (local == 1) {
+      tp_.AddTask([this, neighbor]() { this->ExecuteTxnCalvin(neighbor); });
+    }
+  }
+
+  txn_results_.Push(txn);
+}
+
+void TxnProcessor::RunCalvinScheduler() {
+  Txn *txn;
+
+  std::unordered_map<Key, std::unordered_set<Txn *>> shared_holders;
+  std::unordered_map<Key, Txn *> last_exclusive;
+
+  while (!stopped_) {
+    // Get next txn request
+    if (txn_requests_.Pop(&txn)) {
+      std::scoped_lock lock{adj_list_mutex};
+      int local_indegree{};
+      adj_list[txn] = {};
+
+      // Loop through readset
+      for (const Key &key : txn->readset_) {
+        // Add to shared holders
+        if (!shared_holders.contains(key)) {
+          shared_holders[key] = {};
+        }
+        shared_holders[key].insert(txn);
+
+        // If the last_excl txn is not the current txn, add an edge
+        if (last_exclusive.contains(key) && last_exclusive[key] != txn &&
+            last_exclusive[key]->Status() == INCOMPLETE &&
+            !adj_list[last_exclusive[key]].contains(txn)) {
+          adj_list[last_exclusive[key]].insert(txn);
+          local_indegree++;
+        }
+      }
+
+      for (const Key &key : txn->writeset_) {
+        // Add an edge between the current txn and all shared holders
+        if (shared_holders.contains(key)) {
+          for (auto conflicting_txn : shared_holders[key]) {
+            if (conflicting_txn != txn &&
+                conflicting_txn->Status() == INCOMPLETE &&
+                !adj_list[conflicting_txn].contains(txn)) {
+              adj_list[conflicting_txn].insert(txn);
+              local_indegree++;
+            }
+          }
+          shared_holders[key].clear();
+        }
+
+        last_exclusive[key] = txn;
+      }
+
+      if (local_indegree == 0) {
+        tp_.AddTask([this, txn]() { this->ExecuteTxnCalvin(txn); });
+      } else {
+        indegrees[txn].store(local_indegree, std::memory_order_relaxed);
+      }
+    }
   }
 }
 
 void TxnProcessor::RunSerialScheduler() {
-  TRACE_EVENT("rendering", "RunSerialScheduler");
   Txn *txn;
   while (!stopped_) {
     // Get next txn request.
@@ -109,12 +191,10 @@ void TxnProcessor::RunSerialScheduler() {
 }
 
 void TxnProcessor::RunLockingScheduler() {
-  TRACE_EVENT("rendering", "RunLockingScheduler", "Mode", mode_);
   Txn *txn;
   while (!stopped_) {
     // Start processing the next incoming transaction request.
     if (txn_requests_.Pop(&txn)) {
-      TRACE_EVENT("rendering", "ProcessIncomingTxn");
       bool blocked = false;
       // Request read locks.
       for (std::set<Key>::iterator it = txn->readset_.begin();
@@ -141,7 +221,6 @@ void TxnProcessor::RunLockingScheduler() {
 
     // Process and commit all transactions that have finished running.
     while (completed_txns_.Pop(&txn)) {
-      TRACE_EVENT("rendering", "ProcessCompletedTxns");
       // Commit/abort txn according to program logic's commit/abort decision.
       if (txn->Status() == COMPLETED_C) {
         ApplyWrites(txn);
@@ -172,7 +251,6 @@ void TxnProcessor::RunLockingScheduler() {
     // Start executing all transactions that have newly acquired all their
     // locks.
     while (ready_txns_.size()) {
-      TRACE_EVENT("rendering", "AssignReadyTxns");
       // Get next ready txn from the queue.
       txn = ready_txns_.front();
       ready_txns_.pop_front();
@@ -184,7 +262,6 @@ void TxnProcessor::RunLockingScheduler() {
 }
 
 void TxnProcessor::ExecuteTxn(Txn *txn) {
-  TRACE_EVENT("rendering", "ExecuteTxn");
   // Get the current commited transaction index for the further validation.
   txn->occ_start_idx_ = committed_txns_.Size();
 
@@ -214,7 +291,6 @@ void TxnProcessor::ExecuteTxn(Txn *txn) {
 }
 
 void TxnProcessor::ApplyWrites(Txn *txn) {
-  TRACE_EVENT("rendering", "ApplyWrites");
   // Write buffered writes out to storage.
   for (std::map<Key, Value>::iterator it = txn->writes_.begin();
        it != txn->writes_.end(); ++it) {

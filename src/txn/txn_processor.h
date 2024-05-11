@@ -4,6 +4,7 @@
 #include <atomic>
 #include <deque>
 #include <string>
+#include <unordered_set>
 
 #include "lock_manager.h"
 #include "mvcc_storage.h"
@@ -16,9 +17,10 @@
 // The TxnProcessor supports five different execution modes, corresponding to
 // the four parts of assignment 2, plus a simple serial (non-concurrent) mode.
 enum CCMode {
-  SERIAL = 0,             // Serial transaction execution (no concurrency)
-  LOCKING,                // Part 1B
+  SERIAL = 0, // Serial transaction execution (no concurrency)
+  CALVIN,
   LOCKING_EXCLUSIVE_ONLY, // Part 1A
+  LOCKING,                // Part 1B
   OCC,                    // Part 2
   P_OCC,                  // Part 3
   MVCC,                   // Part 4
@@ -100,6 +102,15 @@ private:
   void MVCCLockWriteKeys(Txn *txn);
 
   void MVCCUnlockWriteKeys(Txn *txn);
+
+  // Calvin
+  std::shared_mutex adj_list_mutex;
+
+  std::unordered_map<Txn *, std::unordered_set<Txn *>> adj_list;
+  std::unordered_map<Txn *, std::atomic<int>> indegrees;
+
+  void RunCalvinScheduler();
+  void ExecuteTxnCalvin(Txn *txn);
 
   // Concurrency control mechanism the TxnProcessor is currently using.
   CCMode mode_;
