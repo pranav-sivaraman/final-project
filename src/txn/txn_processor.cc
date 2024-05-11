@@ -96,11 +96,13 @@ void TxnProcessor::ExecuteTxnCalvin(Txn *txn) {
     DIE("Completed Txn has invalid TxnStatus: " << txn->Status());
   }
 
-  std::shared_lock lock{adj_list_mutex};
+  std::shared_lock lock1{adj_list_mutex, std::defer_lock};
+  std::unique_lock lock2{indegrees_mutex, std::defer_lock};
+  std::lock(lock1, lock2);
+
   auto neighbors = adj_list[txn];
   for (const auto &neighbor : neighbors) {
-    int local = --indegrees[neighbor];
-    if (local == 0) {
+    if (--indegrees[neighbor] == 0) {
       tp_.AddTask([this, neighbor]() { this->ExecuteTxnCalvin(neighbor); });
     }
   }
@@ -114,11 +116,10 @@ void TxnProcessor::RunCalvinScheduler() {
   std::unordered_map<Key, std::unordered_set<Txn *>> shared_holders;
   std::unordered_map<Key, Txn *> last_exclusive;
 
-  while (!stopped_) {
+  while (!stopped_.load(std::memory_order_relaxed)) {
     // Get next txn request
     if (txn_requests_.Pop(&txn)) {
-      std::scoped_lock lock{adj_list_mutex};
-      int local_indegree{};
+      std::scoped_lock lock{adj_list_mutex, indegrees_mutex};
       adj_list[txn] = {};
 
       // Loop through readset
@@ -134,7 +135,7 @@ void TxnProcessor::RunCalvinScheduler() {
             last_exclusive[key]->Status() == INCOMPLETE &&
             !adj_list[last_exclusive[key]].contains(txn)) {
           adj_list[last_exclusive[key]].insert(txn);
-          local_indegree++;
+          indegrees[txn]++;
         }
       }
 
@@ -146,7 +147,7 @@ void TxnProcessor::RunCalvinScheduler() {
                 conflicting_txn->Status() == INCOMPLETE &&
                 !adj_list[conflicting_txn].contains(txn)) {
               adj_list[conflicting_txn].insert(txn);
-              local_indegree++;
+              indegrees[txn]++;
             }
           }
           shared_holders[key].clear();
@@ -155,10 +156,8 @@ void TxnProcessor::RunCalvinScheduler() {
         last_exclusive[key] = txn;
       }
 
-      if (local_indegree == 0) {
+      if (indegrees[txn] == 0) {
         tp_.AddTask([this, txn]() { this->ExecuteTxnCalvin(txn); });
-      } else {
-        indegrees[txn] = local_indegree;
       }
     }
   }

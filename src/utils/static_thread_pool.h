@@ -63,7 +63,7 @@ private:
           sleep_duration *= 2;
       }
 
-      if (this->stopped_) {
+      if (this->stopped_.load(std::memory_order_relaxed)) {
         // Go through ALL queues looking for a remaining task.
         while (this->queues_[queue_id].Pop(&task)) {
           task();

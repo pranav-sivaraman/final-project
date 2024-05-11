@@ -17,14 +17,14 @@
 // The TxnProcessor supports five different execution modes, corresponding to
 // the four parts of assignment 2, plus a simple serial (non-concurrent) mode.
 enum CCMode {
-  SERIAL = 0, // Serial transaction execution (no concurrency)
-  CALVIN,
+  SERIAL = 0,             // Serial transaction execution (no concurrency)
   LOCKING_EXCLUSIVE_ONLY, // Part 1A
   LOCKING,                // Part 1B
-  OCC,                    // Part 2
-  P_OCC,                  // Part 3
-  MVCC,                   // Part 4
-  MVCC_SSI,               // Part 5
+  CALVIN,
+  OCC,      // Part 2
+  P_OCC,    // Part 3
+  MVCC,     // Part 4
+  MVCC_SSI, // Part 5
 };
 
 // Returns a human-readable string naming of the providing mode.
@@ -104,10 +104,11 @@ private:
   void MVCCUnlockWriteKeys(Txn *txn);
 
   // Calvin
-  std::shared_mutex adj_list_mutex;
-
   std::unordered_map<Txn *, std::unordered_set<Txn *>> adj_list;
-  std::unordered_map<Txn *, std::atomic<int>> indegrees;
+  std::unordered_map<Txn *, int> indegrees;
+
+  std::mutex indegrees_mutex;
+  std::shared_mutex adj_list_mutex;
 
   void RunCalvinScheduler();
   void ExecuteTxnCalvin(Txn *txn);
