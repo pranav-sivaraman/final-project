@@ -6,7 +6,7 @@ add_library(txn STATIC
     txn/txn_processor.cc
     txn/lock_manager.cc
 )
-target_link_libraries(txn PUBLIC Threads::Threads)
+target_link_libraries(txn PUBLIC Threads::Threads fmt::fmt)
 
 add_executable(lock_manager_test
     txn/lock_manager_test.cc
