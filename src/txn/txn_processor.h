@@ -21,11 +21,11 @@ enum CCMode {
   SERIAL = 0,             // Serial transaction execution (no concurrency)
   LOCKING_EXCLUSIVE_ONLY, // Part 1A
   LOCKING,                // Part 1B
+  OCC,                    // Part 2
+  P_OCC,                  // Part 3
+  MVCC,                   // Part 4
   CALVIN,
   CALVIN_I,
-  OCC,      // Part 2
-  P_OCC,    // Part 3
-  MVCC,     // Part 4
   MVCC_SSI, // Part 5
 };
 
@@ -121,7 +121,7 @@ private:
   CCMode mode_;
 
   // Thread pool managing all threads used by TxnProcessor.
-  StaticThreadPool tp_;
+  thread_pool tp_;
 
   // Data storage used for all modes.
   Storage *storage_;

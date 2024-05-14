@@ -10,6 +10,8 @@
 // Thread & queue counts for StaticThreadPool initialization.
 #define THREAD_COUNT 8
 
+using std::set;
+
 TxnProcessor::TxnProcessor(CCMode mode)
     : mode_(mode), tp_(THREAD_COUNT), next_unique_id_(1) {
   if (mode_ == LOCKING_EXCLUSIVE_ONLY)
@@ -417,25 +419,259 @@ void TxnProcessor::ApplyWrites(Txn *txn) {
 }
 
 void TxnProcessor::RunOCCScheduler() {
-  //
-  // Implement this method!
-  //
-  // [For now, run serial scheduler in order to make it through the test
-  // suite]
-  RunSerialScheduler();
+  Txn *txn;
+  while (!stopped_) {
+    // Get the next new txn request (if one is pending)
+    if (txn_requests_.Pop(&txn)) {
+      // Pass it to an execution thread
+      tp_.AddTask([this, txn]() { this->ExecuteTxn(txn); });
+    }
+
+    // Dealing with a finished transaction
+    while (completed_txns_.Pop(&txn)) {
+      // Validation phase
+      // Use the data structure in `txn_processor` class to check overlap with
+      // each record whose key appears in the txn's read and write sets
+      bool valid = true;
+
+      // Check for overlap with newly committed transactions
+      // after the txn's occ_start_idx_
+      for (int i = txn->occ_start_idx_ + 1; i < committed_txns_.Size(); i++) {
+        Txn *t = committed_txns_[i];
+
+        // check if write_set of t intersects with read_set of txn
+        for (auto key : txn->readset_) {
+          if (t->writeset_.find(key) != t->writeset_.end()) {
+            valid = false;
+            break;
+          }
+        }
+      }
+
+      // If validation failed, cleanup txn and completely restart it
+      if (!valid) {
+        // Cleanup txn
+        txn->reads_.clear();
+        txn->writes_.clear();
+        txn->status_ = INCOMPLETE;
+
+        // Restart txn
+        std::scoped_lock lock{mutex_};
+        txn->unique_id_ = next_unique_id_++;
+        txn_requests_.Push(txn);
+      } else {
+        // Apply all writes
+        ApplyWrites(txn);
+
+        // Mark transaction as committed
+        committed_txns_.Push(txn);
+        txn->status_ = COMMITTED;
+
+        // Update relevant data structure
+        txn_results_.Push(txn);
+      }
+    }
+  }
+}
+
+void TxnProcessor::ExecuteTxnParallel(Txn *txn) {
+  txn->occ_start_idx_ = committed_txns_.Size();
+
+  // Perform "read phase" of transaction
+  // Read everything in from readset.
+  for (std::set<Key>::iterator it = txn->readset_.begin();
+       it != txn->readset_.end(); ++it) {
+    // Save each read result iff record exists in storage.
+    Value result;
+    if (storage_->Read(*it, &result))
+      txn->reads_[*it] = result;
+  }
+
+  // Also read everything in from writeset.
+  for (std::set<Key>::iterator it = txn->writeset_.begin();
+       it != txn->writeset_.end(); ++it) {
+    // Save each read result iff record exists in storage.
+    Value result;
+    if (storage_->Read(*it, &result))
+      txn->reads_[*it] = result;
+  }
+
+  // Execute txn's program logic.
+  txn->Run();
+
+  // Start of critical section
+  // Make a copy of the active set
+  std::unique_lock lock{active_set_mutex_};
+  auto finish_active = active_set_.GetSet();
+  // Add this txn to the active set
+  active_set_.Insert(txn);
+  // End of critical section
+  lock.unlock();
+
+  // Validation phase
+  // Use the data structure in `txn_processor` class to check overlap with
+  // each record whose key appears in the txn's read and write sets
+  bool valid = true;
+
+  // NOTE: This is not in the pseudocode in the project description
+  // Check for overlap with newly committed transactions
+  // after the txn's occ_start_idx_
+  for (int i = txn->occ_start_idx_ + 1; i < committed_txns_.Size(); i++) {
+    Txn *t = committed_txns_[i];
+
+    // check if write_set of t intersects with read_set of txn
+    for (auto key : txn->readset_) {
+      if (t->writeset_.find(key) != t->writeset_.end()) {
+        valid = false;
+        break;
+      }
+    }
+  }
+
+  // Check overlap with each record whose key appears in the txn's read and
+  // write sets NOTE: we only run this if the txn hasn't been invalidated by the
+  // previous check NOTE: this is the only validation implemented in the
+  // pseudocode in the project description
+  if (valid) {
+    for (auto t : finish_active) {
+      // if txn's write set intersects with t's write sets
+      for (auto key : txn->writeset_) {
+        if (t->writeset_.find(key) != t->writeset_.end()) {
+          valid = false;
+          break;
+        }
+      }
+
+      // if txn's read set intersects with t's write sets
+      for (auto key : txn->readset_) {
+        if (t->writeset_.find(key) != t->writeset_.end()) {
+          valid = false;
+          break;
+        }
+      }
+    }
+  }
+
+  // If validation failed, cleanup txn and completely restart it
+  if (!valid) {
+    // Remove this txn from the active set
+    std::unique_lock active_set_lock{active_set_mutex_};
+    active_set_.Erase(txn);
+    active_set_lock.unlock();
+
+    // Cleanup txn
+    txn->reads_.clear();
+    txn->writes_.clear();
+    txn->status_ = INCOMPLETE;
+
+    // Restart txn
+    std::scoped_lock lock{mutex_};
+    txn->unique_id_ = next_unique_id_++;
+    txn_requests_.Push(txn);
+  } else {
+    // Apply all writes
+    ApplyWrites(txn);
+
+    // Remove this txn from the active set
+    std::unique_lock active_set_lock{active_set_mutex_};
+    active_set_.Erase(txn);
+    active_set_lock.unlock();
+
+    // Mark transaction as committed
+    committed_txns_.Push(txn);
+    txn->status_ = COMMITTED;
+
+    // Update relevant data structure
+    txn_results_.Push(txn);
+  }
 }
 
 void TxnProcessor::RunOCCParallelScheduler() {
-  //
-  // Implement this method! Note that implementing OCC with parallel
-  // validation may need to create another method, like
-  // TxnProcessor::ExecuteTxnParallel.
-  // Note that you can use active_set_ and active_set_mutex_ we provided
-  // for you in the txn_processor.h
-  //
-  // [For now, run serial scheduler in order to make it through the test
-  // suite]
-  RunSerialScheduler();
+  Txn *txn;
+  while (!stopped_) {
+    // Get the next new transaction request (if one is pending) and pass it to
+    // an execution thread that executes the txn logic *and also* does the
+    // validation and write phases.
+    if (txn_requests_.Pop(&txn)) {
+      tp_.AddTask([this, txn]() { this->ExecuteTxnParallel(txn); });
+    }
+  }
+}
+
+set<Key> set_union(const std::set<Key> &s1, const set<Key> &s2) {
+  std::set<Key> result = s1;
+  result.insert(s2.begin(), s2.end());
+  return result;
+}
+
+void TxnProcessor::MVCCExecuteTxn(Txn *txn) {
+  // Read all necessary data for this transaction from storage
+  // (Note that unlike the version of MVCC from class, you should lock the key
+  // before each read)
+
+  // Read everything in from readset and writeset.
+  for (auto key : set_union(txn->readset_, txn->writeset_)) {
+    // Lock the key
+    storage_->Lock(key);
+
+    // Save each read result iff record exists in storage.
+    Value result;
+    if (storage_->Read(key, &result, txn->unique_id_))
+      txn->reads_[key] = result;
+
+    // Unlock the key
+    storage_->Unlock(key);
+  }
+
+  // Execute txn's program logic.
+  txn->Run();
+
+  // Acquire all locks for keys in the write_set_
+  for (auto key : txn->writeset_) {
+    storage_->Lock(key);
+  }
+
+  // Call MVCCStorage::CheckWrite method to check all keys in the write_set_
+  bool checkPassed = true;
+  for (auto key : txn->writeset_) {
+    if (!((MVCCStorage *)storage_)->CheckKey(key, txn->unique_id_)) {
+      checkPassed = false;
+      break;
+    }
+  }
+
+  // If each key passed the check
+  if (checkPassed) {
+    // Apply the writes
+    ApplyWrites(txn);
+
+    // Release all locks for keys in the write_set_
+    for (auto key : txn->writeset_) {
+      storage_->Unlock(key);
+    }
+
+    // Mark transaction as committed
+    committed_txns_.Push(txn);
+    txn->status_ = COMMITTED;
+
+    // Update relevant data structure
+    txn_results_.Push(txn);
+  } else { // At least one key failed the check
+    // Release all locks for keys in the write_set_
+    for (auto key : txn->writeset_) {
+      storage_->Unlock(key);
+    }
+
+    // Cleanup txn
+    txn->reads_.clear();
+    txn->writes_.clear();
+    txn->status_ = INCOMPLETE;
+
+    // Restart txn -- same as OCC
+    std::scoped_lock lock{mutex_};
+    txn->unique_id_ = next_unique_id_++;
+    txn_requests_.Push(txn);
+  }
 }
 
 void TxnProcessor::RunMVCCScheduler() {
@@ -445,10 +681,88 @@ void TxnProcessor::RunMVCCScheduler() {
   // Hint:Pop a txn from txn_requests_, and pass it to a thread to execute.
   // Note that you may need to create another execute method, like
   // TxnProcessor::MVCCExecuteTxn.
-  //
-  // [For now, run serial scheduler in order to make it through the test
-  // suite]
-  RunSerialScheduler();
+
+  Txn *txn;
+  while (!stopped_) {
+    // Get the next new transaction request (if one is pending) and pass it to
+    // an execution thread that executes the txn logic *and also* does the
+    // validation and write phases.
+    if (txn_requests_.Pop(&txn)) {
+      tp_.AddTask([this, txn]() { this->MVCCExecuteTxn(txn); });
+    }
+  }
+}
+
+void TxnProcessor::MVCCSSIExecuteTxn(Txn *txn) {
+  // Read all necessary data for this transaction from storage
+  // (Note that unlike the version of MVCC from class, you should lock the key
+  // before each read)
+
+  // Read everything in from readset and writeset.
+  for (auto key : set_union(txn->readset_, txn->writeset_)) {
+    // Lock the key
+    storage_->Lock(key);
+
+    // Save each read result iff record exists in storage.
+    Value result;
+    if (storage_->Read(key, &result, txn->unique_id_))
+      txn->reads_[key] = result;
+
+    // Unlock the key
+    storage_->Unlock(key);
+  }
+
+  // Execute txn's program logic.
+  txn->Run();
+
+  // THIS IS DIFFERENT FROM MVCCExecuteTxn: we lock write_set AND read_set
+  // Acquire all locks for keys in the read_set_ and write_set_
+  // (Lock any overlapping key only once.)
+  for (auto key : set_union(txn->writeset_, txn->readset_)) {
+    storage_->Lock(key);
+  }
+
+  // Call MVCCStorage::CheckWrite method to check all keys in the write_set_
+  bool checkPassed = true;
+  for (auto key : txn->writeset_) {
+    if (!((MVCCStorage *)storage_)->CheckKey(key, txn->unique_id_)) {
+      checkPassed = false;
+      break;
+    }
+  }
+
+  // If each key passed the check
+  if (checkPassed) {
+    // Apply the writes
+    ApplyWrites(txn);
+
+    // Release all locks for ALL keys (read_set_ and write_set_)
+    for (auto key : set_union(txn->writeset_, txn->readset_)) {
+      storage_->Unlock(key);
+    }
+
+    // Mark transaction as committed
+    committed_txns_.Push(txn);
+    txn->status_ = COMMITTED;
+
+    // Update relevant data structure
+    txn_results_.Push(txn);
+  } else { // At least one key failed the check
+    // Release all locks for ALL keys (read_set_ and write_set_)
+    for (auto key : set_union(txn->writeset_, txn->readset_)) {
+      storage_->Unlock(key);
+    }
+
+    // Cleanup txn
+    txn->reads_.clear();
+    txn->writes_.clear();
+    txn->status_ = INCOMPLETE;
+
+    // Restart txn -- same as OCC
+    std::scoped_lock lock{mutex_};
+    txn->unique_id_ = next_unique_id_++;
+    txn_requests_.Push(txn);
+  }
 }
 
 void TxnProcessor::RunMVCCSSIScheduler() {
@@ -458,8 +772,14 @@ void TxnProcessor::RunMVCCSSIScheduler() {
   // Hint:Pop a txn from txn_requests_, and pass it to a thread to execute.
   // Note that you may need to create another execute method, like
   // TxnProcessor::MVCCSSIExecuteTxn.
-  //
-  // [For now, run serial scheduler in order to make it through the test
-  // suite]
-  RunSerialScheduler();
+
+  Txn *txn;
+  while (!stopped_) {
+    // Get the next new transaction request (if one is pending) and pass it to
+    // an execution thread that executes the txn logic *and also* does the
+    // validation and write phases.
+    if (txn_requests_.Pop(&txn)) {
+      tp_.AddTask([this, txn]() { this->MVCCSSIExecuteTxn(txn); });
+    }
+  }
 }

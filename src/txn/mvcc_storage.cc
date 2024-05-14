@@ -4,7 +4,7 @@
 void MVCCStorage::InitStorage() {
   for (int i = 0; i < 1000000; i++) {
     Write(i, 0, 0);
-    std::mutex *key_mutex = new std::mutex;
+    std::mutex *key_mutex = new std::mutex();
     mutexs_[i] = key_mutex;
   }
 }
@@ -32,14 +32,35 @@ void MVCCStorage::Lock(Key key) { mutexs_[key]->lock(); }
 void MVCCStorage::Unlock(Key key) { mutexs_[key]->unlock(); }
 
 // MVCC Read
+// If there exists a record for the specified key, sets '*result' equal to
+// the value associated with the key and returns true, else returns false;
+// The third parameter is the txn_unique_id(txn timestamp), which is used for
+// MVCC.
 bool MVCCStorage::Read(Key key, Value *result, int txn_unique_id) {
   //
   // Implement this method!
 
-  // Hint: Iterate the version_lists and return the verion whose write timestamp
-  // (version_id) is the largest write timestamp less than or equal to
+  // Hint: Iterate the version_lists and return the version whose write
+  // timestamp (version_id) is the largest write timestamp less than or equal to
   // txn_unique_id.
-  return true;
+
+  // Check if the key exists in mvcc_data_
+  if (mvcc_data_.count(key) == 0) {
+    return false;
+  }
+
+  for (auto version : *mvcc_data_[key]) {
+    // Return the first version whose version_id is less than or equal to
+    // txn_unique_id This assumes that the version list is sorted in descending
+    // order
+    if (version->version_id_ <= txn_unique_id) {
+      *result = version->value_;
+      version->max_read_id_ = txn_unique_id;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Check whether the txn executed on the latest version of the key.
@@ -54,10 +75,20 @@ bool MVCCStorage::CheckKey(Key key, int txn_unique_id) {
   // check, return false if not. Note that you don't have to call Lock(key) in
   // this method, just call Lock(key) before you call this method and call
   // Unlock(key) afterward.
-  return true;
+
+  // If key doesn't exist, or if deque is empty for some reason, return false
+  if (mvcc_data_.count(key) == 0 || mvcc_data_[key]->empty()) {
+    return false;
+  }
+
+  // Assuming that the version list is sorted in descending order
+  return txn_unique_id >= mvcc_data_[key]->front()->version_id_;
 }
 
 // MVCC Write, call this method only if CheckWrite return true.
+// Inserts a new version with key and value
+// The third parameter is the txn_unique_id(txn timestamp), which is used for
+// MVCC.
 void MVCCStorage::Write(Key key, Value value, int txn_unique_id) {
   //
   // Implement this method!
@@ -68,4 +99,21 @@ void MVCCStorage::Write(Key key, Value value, int txn_unique_id) {
   // have to call Lock(key) in this method, just call Lock(key) before you call
   // this method and call Unlock(key) afterward. Note that the performance would
   // be much better if you organize the versions in decreasing order.
+
+  auto version = new Version();
+  version->value_ = value;
+  version->version_id_ = txn_unique_id;
+  version->max_read_id_ = 0;
+
+  if (mvcc_data_.count(key) == 0) {
+    mvcc_data_[key] = new std::deque<Version *>();
+  }
+
+  // Insert the new version in descending order
+  auto it = mvcc_data_[key]->begin();
+  while (it != mvcc_data_[key]->end() && (*it)->version_id_ > txn_unique_id) {
+    ++it;
+  }
+  mvcc_data_[key]->insert(it, version);
 }
+
