@@ -50,9 +50,8 @@ public:
     }
   }
 
-  void schedule(task &&f) {
+  void AddTask(task &&f) {
     unsigned tid = counter_++;
-    bool pushed = false;
 
     // Try to Assign Round Robin
     if (!queues_[tid % num_threads_].try_push(std::forward<task>(f))) {

@@ -13,6 +13,7 @@
 #include "utils/atomic.h"
 #include "utils/common.h"
 #include "utils/pool.h"
+#include "utils/static_thread_pool.h"
 
 // The TxnProcessor supports five different execution modes, corresponding to
 // the four parts of assignment 2, plus a simple serial (non-concurrent) mode.
@@ -120,7 +121,7 @@ private:
   CCMode mode_;
 
   // Thread pool managing all threads used by TxnProcessor.
-  thread_pool tp_;
+  StaticThreadPool tp_;
 
   // Data storage used for all modes.
   Storage *storage_;

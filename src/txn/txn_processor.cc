@@ -107,7 +107,7 @@ void TxnProcessor::ExecuteTxnCalvin(Txn *txn) {
   auto neighbors = adj_list[txn];
   for (const auto &neighbor : neighbors) {
     if (--indegrees[neighbor] == 0) {
-      tp_.schedule([this, neighbor]() { this->ExecuteTxnCalvin(neighbor); });
+      tp_.AddTask([this, neighbor]() { this->ExecuteTxnCalvin(neighbor); });
     }
   }
 
@@ -142,7 +142,7 @@ void TxnProcessor::ExecuteTxnICalvin(Txn *txn) {
     nei->indegree_mutex.lock();
     nei->indegree--;
     if (nei->indegree == 0) {
-      tp_.schedule([this, txn]() { this->ExecuteTxnICalvin(txn); });
+      tp_.AddTask([this, txn]() { this->ExecuteTxnICalvin(txn); });
     }
     nei->indegree_mutex.unlock();
   }
@@ -221,7 +221,7 @@ void TxnProcessor::RunCalvinIScheduler() {
 
       // If current transaction's indegree is 0, add it to the threadpool
       if (txn->indegree == 0) {
-        tp_.schedule([this, txn]() { this->ExecuteTxnICalvin(txn); });
+        tp_.AddTask([this, txn]() { this->ExecuteTxnICalvin(txn); });
       }
       txn->indegree_mutex.unlock();
     }
@@ -275,7 +275,7 @@ void TxnProcessor::RunCalvinScheduler() {
       }
 
       if (indegrees[txn] == 0) {
-        tp_.schedule([this, txn]() { this->ExecuteTxnCalvin(txn); });
+        tp_.AddTask([this, txn]() { this->ExecuteTxnCalvin(txn); });
       }
     }
   }
@@ -373,7 +373,7 @@ void TxnProcessor::RunLockingScheduler() {
       ready_txns_.pop_front();
 
       // Start txn running in its own thread.
-      tp_.schedule([this, txn]() { this->ExecuteTxn(txn); });
+      tp_.AddTask([this, txn]() { this->ExecuteTxn(txn); });
     }
   }
 }
