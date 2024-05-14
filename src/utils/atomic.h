@@ -2,6 +2,8 @@
 #define _DB_UTILS_ATOMIC_H_
 
 #include <assert.h>
+#include <memory>
+#include <mutex>
 #include <queue>
 #include <set>
 #include <shared_mutex>
