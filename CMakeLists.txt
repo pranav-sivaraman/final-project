@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.18)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -8,7 +8,6 @@ set(DB_SOURCE_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(DB_BINARY_DIR   ${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(Threads REQUIRED)
-find_package(fmt REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
