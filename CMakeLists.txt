@@ -14,9 +14,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_compile_options("-fsanitize=address")
-add_link_options("-fsanitize=address")
-
 enable_testing()
 
 include(systems)
