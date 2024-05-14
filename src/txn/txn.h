@@ -3,6 +3,8 @@
 
 #include <map>
 #include <set>
+#include <shared_mutex>
+#include <unordered_set>
 
 #include "utils/common.h"
 
@@ -95,6 +97,12 @@ protected:
 
   // Start index (used for OCC).
   int64_t occ_start_idx_;
+
+  std::unordered_set<Txn *> neighbors;
+  std::shared_mutex neighbors_mutex;
+
+  std::mutex indegree_mutex;
+  int indegree;
 };
 
 #endif // _TXN_H_

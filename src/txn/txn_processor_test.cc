@@ -21,6 +21,8 @@ std::string ModeToString(CCMode mode) {
     return " MVCC     ";
   case CALVIN:
     return " Calvin   ";
+  case CALVIN_I:
+    return " CALVIN_I ";
   default:
     return "INVALID MODE";
   }
@@ -135,7 +137,7 @@ void Benchmark(const std::vector<LoadGen *> &lg) {
   std::deque<Txn *> doneTxns;
 
   // For each MODE...
-  for (CCMode mode = SERIAL; mode <= CALVIN;
+  for (CCMode mode = SERIAL; mode <= CALVIN_I;
        mode = static_cast<CCMode>(mode + 1)) {
     // Print out mode name.
     std::cout << ModeToString(mode) << std::flush;

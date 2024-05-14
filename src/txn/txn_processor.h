@@ -12,7 +12,7 @@
 #include "txn.h"
 #include "utils/atomic.h"
 #include "utils/common.h"
-#include "utils/static_thread_pool.h"
+#include "utils/pool.h"
 
 // The TxnProcessor supports five different execution modes, corresponding to
 // the four parts of assignment 2, plus a simple serial (non-concurrent) mode.
@@ -21,6 +21,7 @@ enum CCMode {
   LOCKING_EXCLUSIVE_ONLY, // Part 1A
   LOCKING,                // Part 1B
   CALVIN,
+  CALVIN_I,
   OCC,      // Part 2
   P_OCC,    // Part 3
   MVCC,     // Part 4
@@ -111,13 +112,15 @@ private:
   std::shared_mutex adj_list_mutex;
 
   void RunCalvinScheduler();
+  void RunCalvinIScheduler();
   void ExecuteTxnCalvin(Txn *txn);
+  void ExecuteTxnICalvin(Txn *txn);
 
   // Concurrency control mechanism the TxnProcessor is currently using.
   CCMode mode_;
 
   // Thread pool managing all threads used by TxnProcessor.
-  StaticThreadPool tp_;
+  thread_pool tp_;
 
   // Data storage used for all modes.
   Storage *storage_;
