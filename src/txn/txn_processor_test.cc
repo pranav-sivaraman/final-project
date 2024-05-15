@@ -287,7 +287,8 @@ int main(int argc, char **argv) {
     delete lg[i];
   lg.clear();
 
-  std::cout << std::endl;
+  std::cout << "\t\t            Low contention read-write (5 records)"
+            << std::endl;
   std::cout
       << "\t\t----------------------------------------------------------------"
          "---"
